@@ -6,8 +6,8 @@ This plan implements the LendSafe consumer loan default prediction pipeline in P
 
 ## Tasks
 
-- [ ] 1. Set up project structure and dependencies
-  - [ ] 1.1 Create directory structure and initialise Python package
+- [x] 1. Set up project structure and dependencies
+  - [x] 1.1 Create directory structure and initialise Python package
     - Create `src/`, `tests/`, `data/raw/`, `models/`, `notebooks/`, `reports/` directories
     - Create `src/__init__.py` and `tests/__init__.py`
     - Create `requirements.txt` with all pinned dependencies from the design (pandas==2.1.4, numpy==1.26.2, scikit-learn==1.3.2, matplotlib==3.8.2, seaborn==0.13.0, joblib==1.3.2, imbalanced-learn==0.11.0, jupyter==1.0.0, pytest==7.4.3, hypothesis==6.92.1)
