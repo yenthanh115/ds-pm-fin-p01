@@ -14,7 +14,7 @@ This plan implements the LendSafe consumer loan default prediction pipeline in P
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
 
 - [ ] 2. Implement data loading and preprocessing
-  - [ ] 2.1 Implement `load_dataset` in `src/preprocess.py`
+  - [x] 2.1 Implement `load_dataset` in `src/preprocess.py`
     - Create `src/preprocess.py` with `load_dataset(file_path: str) -> pd.DataFrame`
     - Use `pd.read_csv` with `low_memory=False`
     - For large files (>100MB), use `chunksize` parameter to process in batches
