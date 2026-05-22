@@ -22,7 +22,7 @@ This plan implements the LendSafe consumer loan default prediction pipeline in P
     - Raise `IOError` with path and OS error if file unreadable
     - _Requirements: 1.1, 1.2, 1.3, 8.2_
 
-  - [ ]* 2.2 Write property tests for data loading
+  - [x]* 2.2 Write property tests for data loading
     - **Property 1: Column preservation during loading**
     - **Property 2: Descriptive error on invalid file path**
     - **Validates: Requirements 1.1, 1.2, 1.3**
