@@ -44,7 +44,7 @@ This plan implements the LendSafe consumer loan default prediction pipeline in P
     - **Property 19: Column schema mapping completeness**
     - **Validates: Requirements 2.1, 2.2, 2.3, 2.4, 2.5, 8.3**
 
-- [ ] 3. Checkpoint - Ensure data loading and preprocessing tests pass
+- [x] 3. Checkpoint - Ensure data loading and preprocessing tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 4. Implement feature engineering
