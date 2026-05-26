@@ -47,8 +47,8 @@ This plan implements the LendSafe consumer loan default prediction pipeline in P
 - [x] 3. Checkpoint - Ensure data loading and preprocessing tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 4. Implement feature engineering
-  - [ ] 4.1 Implement feature computation functions in `src/features.py`
+- [x] 4. Implement feature engineering
+  - [x] 4.1 Implement feature computation functions in `src/features.py`
     - Create `src/features.py` with module-level constants (`SKEWNESS_THRESHOLD`, `EMPLOYMENT_BINS`, `EMPLOYMENT_LABELS`)
     - Implement `compute_payment_to_income(df)` returning 0.0 when income is 0
     - Implement `compute_credit_utilisation(df)` returning 0.0 when limit is 0
