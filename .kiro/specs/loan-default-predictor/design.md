@@ -10,7 +10,7 @@ The design follows a hybrid organisation: Jupyter notebooks for exploratory data
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        LendSafe Pipeline                         │
+│                        LendSafe Pipeline                        │
 ├─────────────┬──────────────┬──────────────┬─────────────────────┤
 │  Data Load  │ Preprocessor │ Feature Eng. │  Model Train/Score  │
 │  (loader)   │ (preprocess) │  (features)  │     (model)         │

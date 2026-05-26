@@ -27,7 +27,7 @@ This plan implements the LendSafe consumer loan default prediction pipeline in P
     - **Property 2: Descriptive error on invalid file path**
     - **Validates: Requirements 1.1, 1.2, 1.3**
 
-  - [ ] 2.3 Implement preprocessing functions in `src/preprocess.py`
+  - [x] 2.3 Implement preprocessing functions in `src/preprocess.py`
     - Implement `COLUMN_SCHEMA` dictionary for German Credit and Lending Club column mappings
     - Implement `AMBIGUOUS_STATUSES` constant set
     - Implement `strip_formatting(series)` to remove $, %, commas and cast to float
