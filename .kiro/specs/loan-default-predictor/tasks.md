@@ -13,7 +13,7 @@ This plan implements the LendSafe consumer loan default prediction pipeline in P
     - Create `requirements.txt` with all pinned dependencies from the design (pandas==2.1.4, numpy==1.26.2, scikit-learn==1.3.2, matplotlib==3.8.2, seaborn==0.13.0, joblib==1.3.2, imbalanced-learn==0.11.0, jupyter==1.0.0, pytest==7.4.3, hypothesis==6.92.1)
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
 
-- [ ] 2. Implement data loading and preprocessing
+- [x] 2. Implement data loading and preprocessing
   - [x] 2.1 Implement `load_dataset` in `src/preprocess.py`
     - Create `src/preprocess.py` with `load_dataset(file_path: str) -> pd.DataFrame`
     - Use `pd.read_csv` with `low_memory=False`
@@ -36,7 +36,7 @@ This plan implements the LendSafe consumer loan default prediction pipeline in P
     - Implement `preprocess(df, dataset_type)` orchestrating the full pipeline and saving `data/processed.csv`
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 8.3_
 
-  - [ ]* 2.4 Write property tests for preprocessing
+  - [x]* 2.4 Write property tests for preprocessing
     - **Property 3: Numeric formatting strip round-trip**
     - **Property 4: Employment length parsing**
     - **Property 5: Ambiguous status filtering**
