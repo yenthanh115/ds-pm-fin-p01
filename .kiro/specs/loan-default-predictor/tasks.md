@@ -59,7 +59,7 @@ This plan implements the LendSafe consumer loan default prediction pipeline in P
     - Implement `engineer_features(df)` orchestrating the full feature pipeline
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8_
 
-  - [ ]* 4.2 Write property tests for feature engineering
+  - [x]* 4.2 Write property tests for feature engineering
     - **Property 7: Payment-to-income computation**
     - **Property 8: Credit utilisation computation**
     - **Property 9: Open account ratio computation**
