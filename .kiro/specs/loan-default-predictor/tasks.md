@@ -68,7 +68,7 @@ This plan implements the LendSafe consumer loan default prediction pipeline in P
     - **Validates: Requirements 4.1, 4.2, 4.3, 4.5, 4.6, 4.7, 4.8**
 
 - [ ] 5. Implement model training and evaluation
-  - [ ] 5.1 Implement model training functions in `src/model.py`
+  - [x] 5.1 Implement model training functions in `src/model.py`
     - Create `src/model.py` with constants (`RANDOM_SEED=42`, `TEST_SIZE=0.2`, `CV_FOLDS=5`)
     - Define `TrainedModel` dataclass (name, model, cv_scores, cv_mean, feature_names)
     - Implement `stratified_split(X, y)` using `train_test_split` with stratify and fixed seed
@@ -78,7 +78,7 @@ This plan implements the LendSafe consumer loan default prediction pipeline in P
     - Implement `select_best_model(models)` selecting highest mean CV AUC-ROC
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
 
-  - [ ]* 5.2 Write property tests for model training
+  - [x]* 5.2 Write property tests for model training
     - **Property 12: Stratified split preserves class distribution**
     - **Property 13: Cross-validation produces exactly K folds**
     - **Property 14: Reproducibility with fixed seed**
