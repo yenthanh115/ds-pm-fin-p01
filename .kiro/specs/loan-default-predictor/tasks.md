@@ -98,7 +98,7 @@ This plan implements the LendSafe consumer loan default prediction pipeline in P
     - **Property 15: Optimal threshold minimizes expected cost**
     - **Validates: Requirements 6.4**
 
-- [ ] 6. Checkpoint - Ensure model training and evaluation tests pass
+- [x] 6. Checkpoint - Ensure model training and evaluation tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 7. Implement scoring function

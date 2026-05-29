@@ -1,9 +1,11 @@
 """Model training, evaluation, and scoring module for LendSafe pipeline."""
 
+import json
 import os
 from dataclasses import dataclass
 from typing import Any
 
+import joblib
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -23,6 +25,9 @@ from sklearn.metrics import (
     roc_curve,
 )
 from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
+
+from src.features import engineer_features
+from src.preprocess import strip_formatting, parse_employment_length
 
 
 # --- Module-level constants ---
@@ -461,3 +466,84 @@ def generate_findings_report(
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
+
+
+
+def score_applicant(
+    features: dict | pd.Series,
+    model_path: str = "models/best_model.joblib",
+    feature_names_path: str = "models/feature_names.json",
+) -> float:
+    """Score a single applicant.
+
+    Loads the persisted model and expected feature names, validates that all
+    required features are present in the input, applies the same preprocessing
+    and feature engineering transformations used during training, and returns
+    the probability of default.
+
+    Args:
+        features: Dictionary or pandas Series of raw applicant features.
+        model_path: Path to persisted best model (joblib format).
+        feature_names_path: Path to JSON file listing expected feature names.
+
+    Returns:
+        Float in [0.0, 1.0] representing the probability of default.
+
+    Raises:
+        ValueError: If required features are missing from the input.
+                    The error message lists all missing feature names.
+    """
+    # Load persisted model
+    model = joblib.load(model_path)
+
+    # Load expected feature names
+    with open(feature_names_path, "r", encoding="utf-8") as f:
+        expected_feature_names = json.load(f)
+
+    # Convert input to a dict if it's a pandas Series
+    if isinstance(features, pd.Series):
+        features = features.to_dict()
+
+    # Validate all required features are present (fail fast before transformation)
+    input_keys = set(features.keys())
+    required_keys = set(expected_feature_names)
+    missing = sorted(required_keys - input_keys)
+
+    if missing:
+        raise ValueError(
+            f"Missing required features: {missing}"
+        )
+
+    # Build a single-row DataFrame from the input features
+    df = pd.DataFrame([features])
+
+    # Apply preprocessing transformations (same as training)
+    # Strip formatting from numeric columns
+    numeric_cols = [
+        "loan_amount", "interest_rate", "monthly_payment",
+        "annual_income", "dti", "revolving_balance",
+        "revolving_credit_limit",
+    ]
+    for col in numeric_cols:
+        if col in df.columns:
+            df[col] = strip_formatting(df[col])
+
+    # Parse employment length if present
+    if "employment_length" in df.columns:
+        df["employment_length"] = parse_employment_length(df["employment_length"])
+
+    # Apply feature engineering (same as training)
+    df = engineer_features(df)
+
+    # Align columns to what the model expects (handle missing one-hot columns)
+    model_features = model.feature_names_in_ if hasattr(model, "feature_names_in_") else list(df.columns)
+    for col in model_features:
+        if col not in df.columns:
+            df[col] = 0
+
+    # Ensure column order matches model expectations
+    df = df[model_features]
+
+    # Return probability of default (positive class)
+    proba = model.predict_proba(df)[:, 1]
+    return float(proba[0])

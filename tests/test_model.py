@@ -280,3 +280,327 @@ class TestOptimalThresholdMinimizesExpectedCost:
                 f"but threshold {threshold:.4f} has lower cost {cost:.4f} "
                 f"(cost_fp={cost_fp:.2f}, cost_fn={cost_fn:.2f})"
             )
+
+
+# --- Property tests for scoring function (Properties 16, 17, 18) ---
+
+import json
+import tempfile
+import os
+import joblib
+
+from src.model import score_applicant
+from src.preprocess import strip_formatting, parse_employment_length
+from src.features import engineer_features
+
+
+# --- Strategies for scoring tests ---
+
+# The required raw features that the scorer expects (based on feature_names.json)
+RAW_FEATURE_NAMES = [
+    "loan_amount",
+    "term",
+    "interest_rate",
+    "monthly_payment",
+    "grade",
+    "employment_length",
+    "home_ownership",
+    "annual_income",
+    "purpose",
+    "dti",
+    "open_accounts",
+    "total_accounts",
+    "revolving_balance",
+    "revolving_credit_limit",
+]
+
+
+@st.composite
+def valid_applicant_features(draw):
+    """Generate a valid dictionary of raw applicant features.
+
+    Produces realistic feature values that cover the input space for the scorer.
+    """
+    features = {
+        "loan_amount": draw(st.floats(min_value=1000, max_value=40000, allow_nan=False, allow_infinity=False)),
+        "term": draw(st.sampled_from([36, 60])),
+        "interest_rate": draw(st.floats(min_value=5.0, max_value=30.0, allow_nan=False, allow_infinity=False)),
+        "monthly_payment": draw(st.floats(min_value=50, max_value=1500, allow_nan=False, allow_infinity=False)),
+        "grade": draw(st.sampled_from(["A", "B", "C", "D", "E", "F", "G"])),
+        "employment_length": draw(st.sampled_from([
+            "< 1 year", "1 year", "2 years", "3 years", "4 years",
+            "5 years", "6 years", "7 years", "8 years", "9 years", "10+ years",
+        ])),
+        "home_ownership": draw(st.sampled_from(["RENT", "OWN", "MORTGAGE"])),
+        "annual_income": draw(st.floats(min_value=10000, max_value=300000, allow_nan=False, allow_infinity=False)),
+        "purpose": draw(st.sampled_from([
+            "debt_consolidation", "credit_card", "home_improvement",
+            "major_purchase", "small_business", "car", "medical",
+        ])),
+        "dti": draw(st.floats(min_value=0.0, max_value=50.0, allow_nan=False, allow_infinity=False)),
+        "open_accounts": draw(st.integers(min_value=1, max_value=30)),
+        "total_accounts": draw(st.integers(min_value=1, max_value=60)),
+        "revolving_balance": draw(st.floats(min_value=0, max_value=100000, allow_nan=False, allow_infinity=False)),
+        "revolving_credit_limit": draw(st.floats(min_value=1, max_value=200000, allow_nan=False, allow_infinity=False)),
+    }
+    # Ensure total_accounts >= open_accounts
+    if features["total_accounts"] < features["open_accounts"]:
+        features["total_accounts"] = features["open_accounts"]
+    return features
+
+
+# --- Fixture: Train a small model and persist to temp directory ---
+
+@pytest.fixture(scope="module")
+def trained_model_paths():
+    """Train a small logistic regression model on synthetic data and persist it.
+
+    Returns a tuple of (model_path, feature_names_path) pointing to temp files.
+    The model is trained on data that mimics the feature-engineered output so
+    that score_applicant can load and use it.
+    """
+    # Generate synthetic training data that mimics the scorer's pipeline output
+    rng = np.random.default_rng(42)
+    n_samples = 500
+
+    # Build a DataFrame with raw features
+    raw_data = {
+        "loan_amount": rng.uniform(1000, 40000, n_samples),
+        "term": rng.choice([36, 60], n_samples),
+        "interest_rate": rng.uniform(5.0, 30.0, n_samples),
+        "monthly_payment": rng.uniform(50, 1500, n_samples),
+        "grade": rng.choice(["A", "B", "C", "D", "E", "F", "G"], n_samples),
+        "employment_length": rng.choice([
+            "< 1 year", "1 year", "2 years", "3 years", "4 years",
+            "5 years", "6 years", "7 years", "8 years", "9 years", "10+ years",
+        ], n_samples),
+        "home_ownership": rng.choice(["RENT", "OWN", "MORTGAGE"], n_samples),
+        "annual_income": rng.uniform(10000, 300000, n_samples),
+        "purpose": rng.choice([
+            "debt_consolidation", "credit_card", "home_improvement",
+            "major_purchase", "small_business", "car", "medical",
+        ], n_samples),
+        "dti": rng.uniform(0.0, 50.0, n_samples),
+        "open_accounts": rng.integers(1, 30, n_samples),
+        "total_accounts": rng.integers(1, 60, n_samples),
+        "revolving_balance": rng.uniform(0, 100000, n_samples),
+        "revolving_credit_limit": rng.uniform(1, 200000, n_samples),
+    }
+    df = pd.DataFrame(raw_data)
+    # Ensure total_accounts >= open_accounts
+    df["total_accounts"] = df[["open_accounts", "total_accounts"]].max(axis=1)
+
+    # Apply the same transformations as score_applicant
+    numeric_cols = [
+        "loan_amount", "interest_rate", "monthly_payment",
+        "annual_income", "dti", "revolving_balance",
+        "revolving_credit_limit",
+    ]
+    for col in numeric_cols:
+        df[col] = strip_formatting(df[col])
+
+    df["employment_length"] = parse_employment_length(df["employment_length"])
+    df = engineer_features(df)
+
+    # Generate synthetic binary target
+    y = rng.integers(0, 2, n_samples)
+
+    # Train a logistic regression model
+    model = LogisticRegression(
+        class_weight="balanced",
+        random_state=42,
+        max_iter=1000,
+        solver="lbfgs",
+    )
+    model.fit(df, y)
+
+    # Persist model and feature names to temp directory
+    tmp_dir = tempfile.mkdtemp()
+    model_path = os.path.join(tmp_dir, "best_model.joblib")
+    feature_names_path = os.path.join(tmp_dir, "feature_names.json")
+
+    joblib.dump(model, model_path)
+    with open(feature_names_path, "w", encoding="utf-8") as f:
+        json.dump(RAW_FEATURE_NAMES, f)
+
+    yield model_path, feature_names_path
+
+    # Cleanup
+    os.remove(model_path)
+    os.remove(feature_names_path)
+    os.rmdir(tmp_dir)
+
+
+# --- Property 16: Scorer output range ---
+
+
+class TestScorerOutputRange:
+    """Property 16: Scorer output range.
+
+    For any valid applicant feature input (dictionary or pandas Series containing
+    all required features), the scorer SHALL return a float value V where
+    0.0 ≤ V ≤ 1.0.
+
+    **Validates: Requirements 7.1, 7.3**
+    """
+
+    @given(features=valid_applicant_features())
+    @settings(max_examples=100, deadline=None)
+    def test_score_is_float_in_unit_interval(self, features, trained_model_paths):
+        """Score output is a float in [0.0, 1.0] for any valid input."""
+        model_path, feature_names_path = trained_model_paths
+
+        result = score_applicant(
+            features,
+            model_path=model_path,
+            feature_names_path=feature_names_path,
+        )
+
+        assert isinstance(result, float), (
+            f"Expected float, got {type(result)}"
+        )
+        assert 0.0 <= result <= 1.0, (
+            f"Score {result} is outside [0.0, 1.0]"
+        )
+
+    @given(features=valid_applicant_features())
+    @settings(max_examples=100, deadline=None)
+    def test_score_from_series_is_float_in_unit_interval(self, features, trained_model_paths):
+        """Score output is a float in [0.0, 1.0] when input is a pandas Series."""
+        model_path, feature_names_path = trained_model_paths
+
+        series_input = pd.Series(features)
+        result = score_applicant(
+            series_input,
+            model_path=model_path,
+            feature_names_path=feature_names_path,
+        )
+
+        assert isinstance(result, float), (
+            f"Expected float, got {type(result)}"
+        )
+        assert 0.0 <= result <= 1.0, (
+            f"Score {result} is outside [0.0, 1.0]"
+        )
+
+
+# --- Property 17: Scorer transformation consistency ---
+
+
+class TestScorerTransformationConsistency:
+    """Property 17: Scorer transformation consistency.
+
+    For any raw applicant features, applying the preprocessing and feature
+    engineering functions directly SHALL produce the same feature vector as
+    the internal transformations applied by the scorer.
+
+    **Validates: Requirements 7.2**
+    """
+
+    @given(features=valid_applicant_features())
+    @settings(max_examples=100, deadline=None)
+    def test_manual_transform_matches_scorer_internal(self, features, trained_model_paths):
+        """Manually applying transforms produces same feature vector as scorer internals.
+
+        We replicate the scorer's internal transformation logic and verify
+        the resulting feature vector matches what the model would receive.
+        """
+        model_path, feature_names_path = trained_model_paths
+
+        # Load model to get expected feature names
+        model = joblib.load(model_path)
+        model_features = model.feature_names_in_
+
+        # Manually apply the same transformations as score_applicant
+        df = pd.DataFrame([features])
+
+        # Strip formatting from numeric columns
+        numeric_cols = [
+            "loan_amount", "interest_rate", "monthly_payment",
+            "annual_income", "dti", "revolving_balance",
+            "revolving_credit_limit",
+        ]
+        for col in numeric_cols:
+            if col in df.columns:
+                df[col] = strip_formatting(df[col])
+
+        # Parse employment length
+        if "employment_length" in df.columns:
+            df["employment_length"] = parse_employment_length(df["employment_length"])
+
+        # Apply feature engineering
+        df = engineer_features(df)
+
+        # Align columns to model expectations
+        for col in model_features:
+            if col not in df.columns:
+                df[col] = 0
+        df_manual = df[model_features]
+
+        # Now run score_applicant to get the actual score
+        # (this implicitly applies the same transformations)
+        score = score_applicant(
+            features,
+            model_path=model_path,
+            feature_names_path=feature_names_path,
+        )
+
+        # Verify: the manual transformation should produce the same prediction
+        manual_proba = model.predict_proba(df_manual)[:, 1][0]
+
+        np.testing.assert_almost_equal(
+            score, manual_proba, decimal=10,
+            err_msg=(
+                f"Scorer returned {score} but manual transformation "
+                f"produced probability {manual_proba}"
+            ),
+        )
+
+
+# --- Property 18: Scorer missing features error ---
+
+
+class TestScorerMissingFeaturesError:
+    """Property 18: Scorer missing features error.
+
+    For any input that is missing at least one required feature, the scorer
+    SHALL raise a ValueError whose message contains every missing feature name.
+
+    **Validates: Requirements 7.4**
+    """
+
+    @given(
+        features=valid_applicant_features(),
+        keys_to_remove=st.lists(
+            st.sampled_from(RAW_FEATURE_NAMES),
+            min_size=1,
+            max_size=len(RAW_FEATURE_NAMES),
+            unique=True,
+        ),
+    )
+    @settings(max_examples=100, deadline=None)
+    def test_missing_features_raises_valueerror_with_names(
+        self, features, keys_to_remove, trained_model_paths
+    ):
+        """ValueError is raised listing all missing feature names."""
+        model_path, feature_names_path = trained_model_paths
+
+        # Remove selected keys from the features dict
+        incomplete_features = {
+            k: v for k, v in features.items() if k not in keys_to_remove
+        }
+
+        with pytest.raises(ValueError) as exc_info:
+            score_applicant(
+                incomplete_features,
+                model_path=model_path,
+                feature_names_path=feature_names_path,
+            )
+
+        error_message = str(exc_info.value)
+        # Every missing feature name must appear in the error message
+        for missing_key in keys_to_remove:
+            assert missing_key in error_message, (
+                f"Missing feature '{missing_key}' not found in error message: "
+                f"{error_message}"
+            )
