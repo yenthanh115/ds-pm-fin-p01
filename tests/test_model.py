@@ -207,3 +207,76 @@ class TestReproducibilityWithFixedSeed:
 
         # Predictions should be identical
         np.testing.assert_array_almost_equal(preds_1, preds_2, decimal=10)
+
+
+# --- Property 15: Optimal threshold minimizes expected cost ---
+
+
+from src.model import find_optimal_threshold
+
+
+class TestOptimalThresholdMinimizesExpectedCost:
+    """Property 15: Optimal threshold minimizes expected cost.
+
+    For any set of ground-truth labels and predicted probabilities, the
+    selected threshold SHALL produce an expected cost (cost_fp × FP + cost_fn × FN)
+    that is less than or equal to the expected cost at any other threshold in
+    the candidate set.
+
+    **Validates: Requirements 6.4**
+    """
+
+    @given(
+        y_true=st.lists(
+            st.integers(min_value=0, max_value=1),
+            min_size=10,
+            max_size=200,
+        ),
+        y_proba=st.lists(
+            st.floats(min_value=0.0, max_value=1.0, allow_nan=False, allow_infinity=False),
+            min_size=10,
+            max_size=200,
+        ),
+        cost_fp=st.floats(min_value=0.1, max_value=10.0, allow_nan=False, allow_infinity=False),
+        cost_fn=st.floats(min_value=0.1, max_value=10.0, allow_nan=False, allow_infinity=False),
+    )
+    @settings(max_examples=100, deadline=None)
+    def test_optimal_threshold_has_minimum_cost(self, y_true, y_proba, cost_fp, cost_fn):
+        """The selected threshold produces cost <= any other candidate threshold.
+
+        Generates random binary labels and predicted probabilities, then verifies
+        that find_optimal_threshold returns a threshold whose expected cost is
+        minimal across the entire candidate set (np.linspace(0.01, 0.99, 99)).
+        """
+        # Ensure y_true and y_proba have the same length
+        min_len = min(len(y_true), len(y_proba))
+        assume(min_len >= 10)
+        y_true_arr = np.array(y_true[:min_len])
+        y_proba_arr = np.array(y_proba[:min_len])
+
+        # Need at least one sample of each class for meaningful threshold selection
+        assume(y_true_arr.sum() >= 1)
+        assume((y_true_arr == 0).sum() >= 1)
+
+        # Find the optimal threshold
+        optimal_threshold = find_optimal_threshold(y_true_arr, y_proba_arr, cost_fp, cost_fn)
+
+        # Compute cost at the optimal threshold
+        y_pred_optimal = (y_proba_arr >= optimal_threshold).astype(int)
+        fp_optimal = np.sum((y_pred_optimal == 1) & (y_true_arr == 0))
+        fn_optimal = np.sum((y_pred_optimal == 0) & (y_true_arr == 1))
+        cost_optimal = cost_fp * fp_optimal + cost_fn * fn_optimal
+
+        # Verify no other candidate threshold produces a lower cost
+        candidate_thresholds = np.linspace(0.01, 0.99, 99)
+        for threshold in candidate_thresholds:
+            y_pred = (y_proba_arr >= threshold).astype(int)
+            fp = np.sum((y_pred == 1) & (y_true_arr == 0))
+            fn = np.sum((y_pred == 0) & (y_true_arr == 1))
+            cost = cost_fp * fp + cost_fn * fn
+
+            assert cost_optimal <= cost + 1e-9, (
+                f"Optimal threshold {optimal_threshold:.4f} has cost {cost_optimal:.4f}, "
+                f"but threshold {threshold:.4f} has lower cost {cost:.4f} "
+                f"(cost_fp={cost_fp:.2f}, cost_fn={cost_fn:.2f})"
+            )

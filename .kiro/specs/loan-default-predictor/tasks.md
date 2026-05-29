@@ -94,7 +94,7 @@ This plan implements the LendSafe consumer loan default prediction pipeline in P
     - Implement `generate_findings_report(reports, output_path)` writing `reports/findings.md`
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7_
 
-  - [ ]* 5.4 Write property test for threshold optimisation
+  - [x]* 5.4 Write property test for threshold optimisation
     - **Property 15: Optimal threshold minimizes expected cost**
     - **Validates: Requirements 6.4**
 
