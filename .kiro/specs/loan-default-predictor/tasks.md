@@ -84,7 +84,7 @@ This plan implements the LendSafe consumer loan default prediction pipeline in P
     - **Property 14: Reproducibility with fixed seed**
     - **Validates: Requirements 5.1, 5.4, 5.6**
 
-  - [ ] 5.3 Implement model evaluation and reporting in `src/model.py`
+  - [x] 5.3 Implement model evaluation and reporting in `src/model.py`
     - Define `EvaluationReport` dataclass (accuracy, precision, recall, f1, auc_roc, feature_importances, threshold)
     - Implement `evaluate_model(model, X_test, y_test)` computing all metrics
     - Implement `plot_roc_curve(y_test, y_proba, model_name, output_path)`
